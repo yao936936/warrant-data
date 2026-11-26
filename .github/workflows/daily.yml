@@ -28,7 +28,7 @@ jobs:
           DATES: ${{ github.event.inputs.dates }}
         run: |
           if [ -z "$DATES" ]; then node snapshot-flow.mjs data; else
-            for d in $DATES; do node snapshot-flow.mjs data "$d"; done
+            for d in $DATES; do node snapshot-flow.mjs data "$d" || echo "跳過 $d"; done
           fi
       - name: 存檔
         run: |
