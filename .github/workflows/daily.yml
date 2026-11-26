@@ -1,0 +1,40 @@
+name: 每日權證籌碼存檔
+on:
+  schedule:
+    # 台灣時間週一到週五 17:30，19:30 再補跑一次（以防資料晚出或連線失敗）
+    - cron: "30 9 * * 1-5"
+    - cron: "30 11 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      dates:
+        description: "補抓指定日期（YYYYMMDD，多個用空白隔開；留空＝最近交易日）"
+        required: false
+permissions:
+  contents: write
+concurrency: snapshot
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 自動測試
+        run: node --test snapshot-flow.test.mjs
+      - name: 抓資料
+        env:
+          DATES: ${{ github.event.inputs.dates }}
+        run: |
+          if [ -z "$DATES" ]; then node snapshot-flow.mjs data; else
+            for d in $DATES; do node snapshot-flow.mjs data "$d"; done
+          fi
+      - name: 存檔
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          if git diff --cached --quiet; then echo "沒有新資料"; exit 0; fi
+          git commit -m "權證籌碼 $(jq -r .date data/latest.json)"
+          git push
